@@ -192,6 +192,26 @@ has_backports() {
     return 1
 }
 
+cidr_to_netmask() {
+    cidr=$1
+    mask=""
+
+    i=0
+    while [ $i -lt 4 ]; do
+        if [ $cidr -ge 8 ]; then
+            mask="${mask}255."
+            cidr=$((cidr - 8))
+        else
+            mask="${mask}$((256 - (1 << (8 - cidr))))."
+            cidr=0
+        fi
+        i=$((i + 1))
+    done
+
+    # Remove the trailing dot
+    echo "${mask%.}"
+}
+
 interface=auto
 ip=
 netmask=
@@ -273,6 +293,14 @@ while [ $# -gt 0 ]; do
             dns6='2402:4e00::'
             mirror_host=mirrors.tuna.tsinghua.edu.cn
             ntp=time.amazonaws.cn
+            ;;
+        --static-ip)
+            ip=$(ip r get 1.1.1.1 | awk '/src/ {print $7}')
+            gateway=$(ip r get 1.1.1.1 | awk '/via/ {print $3}')
+            _cidr=$(ip -o -f inet addr show | grep -w "$ip" | awk '{print $4}' | cut -d'/' -f2)
+            netmask=$(cidr_to_netmask "$_cidr")
+            hostname=$(hostname)
+            interface=$(ip r get 1.1.1.1 | awk '/dev/ {print $5}')
             ;;
         --interface)
             interface=$2
